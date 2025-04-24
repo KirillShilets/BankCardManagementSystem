@@ -1,6 +1,5 @@
 package com.testtask.bankcardmanager.dto.request;
 
-import com.testtask.bankcardmanager.model.enums.Role;
 import jakarta.validation.constraints.*;
 
 public class CreateUserRequest {
@@ -16,8 +15,6 @@ public class CreateUserRequest {
             message = "Password must be 8-100 characters long and include at least one digit, one lowercase letter, one uppercase letter, and one special character (!@#$%^&*)")
     private String password;
 
-    @NotNull(message = "Role cannot be null")
-    private Role role;
 
     public String getEmail() {
         return email;
@@ -33,13 +30,5 @@ public class CreateUserRequest {
 
     public void setPassword(String password) {
         this.password = password;
-    }
-
-    public Role getRole() {
-        return role;
-    }
-
-    public void setRole(Role role) {
-        this.role = role;
     }
 }
