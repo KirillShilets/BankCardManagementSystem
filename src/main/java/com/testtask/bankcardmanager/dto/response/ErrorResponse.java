@@ -56,4 +56,28 @@ public class ErrorResponse {
     public void setTimestamp(LocalDateTime timestamp) {
         this.timestamp = timestamp;
     }
+
+    public int getStatus() {
+        return status;
+    }
+
+    public void setStatus(int status) {
+        this.status = status;
+    }
+
+    public String getPath() {
+        return path;
+    }
+
+    public void setPath(String path) {
+        this.path = path;
+    }
+
+    public Map<String, List<String>> getValidationErrors() {
+        return validationErrors;
+    }
+
+    public void setValidationErrors(Map<String, List<String>> validationErrors) {
+        this.validationErrors = validationErrors;
+    }
 }
