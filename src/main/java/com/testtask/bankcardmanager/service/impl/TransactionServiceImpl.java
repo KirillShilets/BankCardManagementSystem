@@ -33,6 +33,7 @@ public class TransactionServiceImpl implements TransactionService {
         logger.debug("Attempting to find transaction by ID: {}", id);
         Transaction transaction = transactionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Transaction not found with ID: " + id));
+        logger.info("Transaction found successfully with ID: {}", id);
         return mapTransactionToTransactionDto(transaction);
     }
 

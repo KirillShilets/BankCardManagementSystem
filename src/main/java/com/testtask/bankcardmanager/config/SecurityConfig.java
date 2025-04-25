@@ -21,7 +21,6 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 
 @Configuration
 @EnableWebSecurity
-// Включаем поддержку @PreAuthorize (prePostEnabled=true) и @Secured (securedEnabled=true)
 @EnableMethodSecurity(prePostEnabled = true, securedEnabled = true)
 public class SecurityConfig {
 
@@ -51,7 +50,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/users").hasAuthority("ROLE_ADMIN")
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/users/{id}").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/users/{id}").hasAuthority("ROLE_ADMIN")
                         .requestMatchers("/api/cards/**").authenticated()
                         .anyRequest().authenticated()
                 );

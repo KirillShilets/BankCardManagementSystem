@@ -1,6 +1,7 @@
 package com.testtask.bankcardmanager.service.impl;
 
 import com.testtask.bankcardmanager.dto.request.CreateCardRequest;
+import com.testtask.bankcardmanager.dto.request.GetCardsRequest;
 import com.testtask.bankcardmanager.dto.request.UpdateCardRequest;
 import com.testtask.bankcardmanager.dto.response.CardResponse;
 import com.testtask.bankcardmanager.exception.ResourceNotFoundException;
@@ -10,7 +11,7 @@ import com.testtask.bankcardmanager.model.enums.CardStatus;
 import com.testtask.bankcardmanager.repository.CardRepository;
 import com.testtask.bankcardmanager.repository.UserRepository;
 import com.testtask.bankcardmanager.service.CardService;
-import jakarta.validation.ConstraintViolationException;
+import jakarta.persistence.criteria.Predicate;
 import jakarta.validation.ValidationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,20 +23,25 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
+import java.util.List;
 
 @Service
 public class CardServiceImpl implements CardService {
     private static final Logger logger = LoggerFactory.getLogger(CardServiceImpl.class);
     private final CardRepository cardRepository;
     private final UserRepository userRepository;
+    private final Clock clock;
     private static final DateTimeFormatter EXPIRY_DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM");
 
-    public CardServiceImpl(CardRepository cardRepository, UserRepository userRepository) {
+    public CardServiceImpl(CardRepository cardRepository, UserRepository userRepository, Clock clock) {
         this.cardRepository = cardRepository;
         this.userRepository = userRepository;
+        this.clock = clock;
     }
 
     @Override
@@ -55,11 +61,16 @@ public class CardServiceImpl implements CardService {
 
         try {
             YearMonth expiry = YearMonth.parse(request.getExpiryDate(), EXPIRY_DATE_FORMATTER);
-            if (expiry.isBefore(YearMonth.now())) throw new ValidationException("Expiry date cannot be in the past");
+            if (expiry.isBefore(YearMonth.now(this.clock))) {
+                throw new ValidationException("Expiry date cannot be in the past");
+            }
             card.setExpiryDate(expiry);
         } catch (DateTimeParseException e) {
             logger.error("Invalid expiry date format received: {}", request.getExpiryDate(), e);
             throw new IllegalArgumentException("Invalid expiry date format. Expected YYYY-MM.");
+        } catch (ValidationException e) {
+            logger.warn("Validation error during card creation: {}", e.getMessage());
+            throw e;
         }
 
         Card savedCard = cardRepository.save(card);
@@ -78,16 +89,33 @@ public class CardServiceImpl implements CardService {
     @Override
     @Transactional(readOnly = true)
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
-    public Page<CardResponse> getAllCards(Specification<Card> spec, Pageable pageable) {
-        logger.info("Request to get a list of all the cards. Pagination: {}, Specification applied: {}",
-                pageable, spec != null);
+    public Page<CardResponse> getAllCards(GetCardsRequest getCardsRequest, Pageable pageable) {
+        logger.info("Request to get a list of cards. Filters: {}. Pagination: {}",
+                getCardsRequest, pageable);
+
+        Specification<Card> spec = (root, query, criteriaBuilder) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            if (getCardsRequest.getUserId() != null) {
+                predicates.add(criteriaBuilder.equal(root.get("user").get("id"), getCardsRequest.getUserId()));
+            }
+            if (getCardsRequest.getStatus() != null) {
+                predicates.add(criteriaBuilder.equal(root.get("status"), getCardsRequest.getStatus()));
+            }
+            if (getCardsRequest.getCardHolder() != null && !getCardsRequest.getCardHolder().isBlank()) {
+                predicates.add(criteriaBuilder.like(criteriaBuilder.lower(root.get("cardHolder")), "%" + getCardsRequest.getCardHolder().toLowerCase() + "%"));
+            }
+            if (query.getOrderList().isEmpty() && pageable.getSort().isUnsorted()) {
+                query.orderBy(criteriaBuilder.asc(root.get("id")));
+            }
+
+            return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
+        };
 
         Page<Card> cardPage = cardRepository.findAll(spec, pageable);
-        logger.debug("{} maps found on the {} page (total items: {})",
+        logger.debug("{} cards found on page {} (total items: {})",
                 cardPage.getNumberOfElements(), pageable.getPageNumber(), cardPage.getTotalElements());
-        Page<CardResponse> cardResponsePage = cardPage.map(this::mapCardToCardResponse);
 
-        return cardResponsePage;
+        return cardPage.map(this::mapCardToCardResponse);
     }
 
     @Override

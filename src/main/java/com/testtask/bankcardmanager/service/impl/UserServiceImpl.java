@@ -1,6 +1,7 @@
 package com.testtask.bankcardmanager.service.impl;
 
 import com.testtask.bankcardmanager.dto.request.CreateUserRequest;
+import com.testtask.bankcardmanager.dto.request.GetUsersRequest;
 import com.testtask.bankcardmanager.dto.response.UserResponse;
 import com.testtask.bankcardmanager.exception.DuplicateEmailException;
 import com.testtask.bankcardmanager.exception.ResourceNotFoundException;
@@ -8,6 +9,7 @@ import com.testtask.bankcardmanager.model.User;
 import com.testtask.bankcardmanager.model.enums.Role;
 import com.testtask.bankcardmanager.repository.UserRepository;
 import com.testtask.bankcardmanager.service.UserService;
+import jakarta.persistence.criteria.Predicate;
 import jakarta.validation.ValidationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,6 +22,9 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Service
 public class UserServiceImpl implements UserService {
@@ -63,9 +68,33 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional(readOnly = true)
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
-    public Page<UserResponse> getAllUsers(Specification<User> spec, Pageable pageable) {
-        logger.info("Получение всех пользователей с пагинацией и фильтрами.");
+    public Page<UserResponse> getAllUsers(GetUsersRequest getUsersRequest, Pageable pageable) {
+        logger.info("Request to get a list of users. Filters: {}. Pagination: {}",
+                getUsersRequest, pageable);
+
+        Specification<User> spec = (root, query, criteriaBuilder) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            if (getUsersRequest.getEmail() != null && !getUsersRequest.getEmail().isBlank()) {
+                predicates.add(criteriaBuilder.like(criteriaBuilder.lower(root.get("email")), "%" + getUsersRequest.getEmail().toLowerCase() + "%"));
+            }
+            if (getUsersRequest.getRole() != null) {
+                predicates.add(criteriaBuilder.equal(root.get("role"), getUsersRequest.getRole()));
+            }
+            if (getUsersRequest.getLocked() != null) {
+                predicates.add(criteriaBuilder.equal(root.get("accountNonLocked"), !getUsersRequest.getLocked()));
+            }
+
+            if (query.getOrderList().isEmpty() && pageable.getSort().isUnsorted()) {
+                query.orderBy(criteriaBuilder.asc(root.get("id")));
+            }
+
+            return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
+        };
+
         Page<User> userPage = userRepository.findAll(spec, pageable);
+        logger.debug("{} users found on page {} (total items: {})",
+                userPage.getNumberOfElements(), pageable.getPageNumber(), userPage.getTotalElements());
+
         return userPage.map(this::mapUserToUserDto);
     }
 
@@ -73,17 +102,19 @@ public class UserServiceImpl implements UserService {
     @Transactional
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public UserResponse updateUserStatus(Long id, Boolean locked) {
+        logger.info("Attempting to update lock status for user ID: {} to locked={}", id, locked);
         User user = userRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("The user was not found with the ID: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with ID: " + id)); // Улучшенное сообщение
 
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth != null && user.getEmail().equals(auth.getName()) && locked) {
-            throw new ValidationException("The administrator cannot block his account..");
+            logger.warn("Admin user {} attempted to lock their own account.", user.getEmail());
+            throw new ValidationException("Administrator cannot lock their own account.");
         }
 
         user.setAccountNonLocked(!locked);
         User updatedUser = userRepository.save(user);
-        logger.info("The user's blocking status has been successfully updated for the ID: {}", id);
+        logger.info("User lock status updated successfully for ID: {}. New accountNonLocked state: {}", id, updatedUser.isAccountNonLocked());
         return mapUserToUserDto(updatedUser);
     }
 
