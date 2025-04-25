@@ -45,6 +45,9 @@ public class Card {
     @OneToMany(mappedBy = "card", cascade = CascadeType.ALL, orphanRemoval = true,fetch = FetchType.LAZY)
     private List<Transaction> historyOfTransactions = new ArrayList<>();
 
+    @Column(name = "daily_withdrawal_limit", precision = 17, scale = 2, nullable = false)
+    private BigDecimal dailyWithdrawalLimit;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -119,6 +122,14 @@ public class Card {
         this.user = user;
     }
 
+    public BigDecimal getDailyWithdrawalLimit() {
+        return dailyWithdrawalLimit;
+    }
+
+    public void setDailyWithdrawalLimit(BigDecimal dailyWithdrawalLimit) {
+        this.dailyWithdrawalLimit = dailyWithdrawalLimit;
+    }
+
     public LocalDateTime getCreatedAt() {
         return createdAt;
     }
@@ -159,6 +170,7 @@ public class Card {
                 ", expiryDate=" + expiryDate +
                 ", status=" + status +
                 ", balance=" + balance +
+                ", dailyWithdrawalLimit=" + dailyWithdrawalLimit +
                 ", historyOfTransactionsCount=" + (historyOfTransactions != null ? historyOfTransactions.size() : 0) +
                 ", createdAt=" + createdAt +
                 ", updatedAt=" + updatedAt +

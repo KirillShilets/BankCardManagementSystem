@@ -1,0 +1,13 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2
+      author: kirill_shilets
+      changes:
+        - addColumn:
+            tableName: bank_cards
+            columns:
+              - column:
+                  name: daily_withdrawal_limit
+                  type: DECIMAL(17, 2)
+                  constraints:
+                    nullable: false

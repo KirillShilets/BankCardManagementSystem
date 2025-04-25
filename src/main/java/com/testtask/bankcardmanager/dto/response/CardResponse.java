@@ -12,9 +12,11 @@ public class CardResponse {
     private YearMonth expiryDate;
     private CardStatus status;
     private BigDecimal balance;
+    private BigDecimal dailyWithdrawalLimit;
     private Long userId;
 
-    public CardResponse(Long id, String cardNumberMasked, String cardHolder, YearMonth expiryDate, CardStatus status, BigDecimal balance, Long userId) {
+    public CardResponse(Long id, String cardNumberMasked, String cardHolder,
+                        YearMonth expiryDate, CardStatus status, BigDecimal balance, Long userId,BigDecimal dailyWithdrawalLimit) {
         this.id = id;
         this.cardNumberMasked = cardNumberMasked;
         this.cardHolder = cardHolder;
@@ -22,6 +24,7 @@ public class CardResponse {
         this.status = status;
         this.balance = balance;
         this.userId = userId;
+        this.dailyWithdrawalLimit = dailyWithdrawalLimit;
     }
 
     public Long getId() {
@@ -70,6 +73,14 @@ public class CardResponse {
 
     public void setBalance(BigDecimal balance) {
         this.balance = balance;
+    }
+
+    public BigDecimal getDailyWithdrawalLimit() {
+        return dailyWithdrawalLimit;
+    }
+
+    public void setDailyWithdrawalLimit(BigDecimal dailyWithdrawalLimit) {
+        this.dailyWithdrawalLimit = dailyWithdrawalLimit;
     }
 
     public Long getUserId() {
