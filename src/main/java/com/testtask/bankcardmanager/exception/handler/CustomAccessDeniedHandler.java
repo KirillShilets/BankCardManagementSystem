@@ -1,5 +1,4 @@
 package com.testtask.bankcardmanager.exception.handler;
-
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.testtask.bankcardmanager.dto.response.ErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
