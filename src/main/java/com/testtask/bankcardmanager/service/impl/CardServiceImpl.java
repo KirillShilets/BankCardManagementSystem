@@ -10,6 +10,7 @@ import com.testtask.bankcardmanager.service.CardService;
 import jakarta.validation.ValidationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,6 +32,7 @@ public class CardServiceImpl implements CardService {
 
     @Override
     @Transactional
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public CardResponse createCard(CreateCardRequest request) {
         logger.info("Attempting to create card for user ID: {}", request.getUserId());
         User user = userRepository.findById(request.getUserId()).orElseThrow(null);
@@ -60,6 +62,7 @@ public class CardServiceImpl implements CardService {
     }
 
     @Override
+    @PreAuthorize("hasAuthority('ROLE_ADMIN') or @cardSecurityService.isOwner(authentication, #id)")
     public CardResponse getCardById(Long id) {
         logger.debug("Attempting to find card by ID: {}", id);
         Card card = cardRepository.findById(id).orElseThrow();

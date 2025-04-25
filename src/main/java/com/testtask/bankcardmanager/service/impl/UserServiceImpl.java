@@ -10,6 +10,7 @@ import com.testtask.bankcardmanager.repository.UserRepository;
 import com.testtask.bankcardmanager.service.UserService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,6 +28,7 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public UserResponse createUser(CreateUserRequest request) {
         logger.info("Attempting to create user with email: {}", request.getEmail());
         userRepository.findByEmail(request.getEmail()).ifPresent(u -> {
@@ -44,6 +46,7 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional(readOnly = true)
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public UserResponse getUserById(Long id) {
         logger.debug("Attempting to find user by ID: {}", id);
         User user = userRepository.findById(id)
