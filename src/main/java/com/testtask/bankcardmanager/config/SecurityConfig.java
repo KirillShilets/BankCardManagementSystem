@@ -48,10 +48,19 @@ public class SecurityConfig {
                         .accessDeniedHandler(customAccessDeniedHandler))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, "/api/users").hasAuthority("ROLE_ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/users").hasAuthority("ROLE_ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/cards").hasAuthority("ROLE_ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/cards").hasAuthority("ROLE_ADMIN")
                         .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/cards/{cardId}/transactions").authenticated()
+                        .requestMatchers(HttpMethod.PATCH, "/api/users/{id}/status").hasAuthority("ROLE_ADMIN")
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/users/{id}").hasAuthority("ROLE_ADMIN")
                         .requestMatchers("/api/cards/**").authenticated()
+                        .requestMatchers("/api/user/**").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/cards/{id}").authenticated()
+                        .requestMatchers(HttpMethod.PATCH, "/api/cards/{id}").hasAuthority("ROLE_ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/cards/{id}").hasAuthority("ROLE_ADMIN")
                         .anyRequest().authenticated()
                 );
 
