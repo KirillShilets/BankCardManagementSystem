@@ -24,7 +24,7 @@ public class UserDetailsServiceImpl implements UserDetailsService {
         logger.debug("Attempt to upload a user by username (email): {}", username);
         return userRepository.findByEmail(username)
                 .orElseThrow(() -> {
-                    logger.warn("Пользователь не найден с именем пользователя (email): {}", username);
+                    logger.warn("The user was not found with the username (email): {}", username);
                     return new UsernameNotFoundException("User not found with username: " + username);
                 });
     }

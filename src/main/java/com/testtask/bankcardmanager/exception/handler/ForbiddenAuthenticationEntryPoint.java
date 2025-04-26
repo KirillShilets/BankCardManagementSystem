@@ -39,7 +39,7 @@ public class ForbiddenAuthenticationEntryPoint implements AuthenticationEntryPoi
         ErrorResponse errorResponse = new ErrorResponse(
                 HttpStatus.FORBIDDEN.value(),
                 "Forbidden",
-                "Access Denied: Authentication is required and/or you do not have permissions.",
+                "Access Denied: Authentication is required and or you do not have permissions.",
                 request.getRequestURI()
         );
 

@@ -1,8 +1,7 @@
 package com.testtask.bankcardmanager.exception.handler;
 
 import com.testtask.bankcardmanager.dto.response.ErrorResponse;
-import com.testtask.bankcardmanager.exception.DuplicateEmailException;
-import com.testtask.bankcardmanager.exception.ResourceNotFoundException;
+import com.testtask.bankcardmanager.exception.*;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
@@ -115,6 +114,42 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 ((ServletWebRequest) request).getRequest().getRequestURI()
         );
         return new ResponseEntity<>(errorResponse, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(CardOperationException.class)
+    public ResponseEntity<ErrorResponse> handleCardOperationException(CardOperationException ex, WebRequest request) {
+        logger.warn("Card operation error: {}", ex.getMessage());
+        ErrorResponse errorResponse = new ErrorResponse(
+                HttpStatus.BAD_REQUEST.value(),
+                "Card Operation Failed",
+                ex.getMessage(),
+                ((ServletWebRequest) request).getRequest().getRequestURI()
+        );
+        return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(InsufficientFundsException.class)
+    public ResponseEntity<ErrorResponse> handleInsufficientFundsException(InsufficientFundsException ex, WebRequest request) {
+        logger.warn("Insufficient funds: {}", ex.getMessage());
+        ErrorResponse errorResponse = new ErrorResponse(
+                HttpStatus.BAD_REQUEST.value(),
+                "Insufficient Funds",
+                ex.getMessage(),
+                ((ServletWebRequest) request).getRequest().getRequestURI()
+        );
+        return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(DailyLimitExceededException.class)
+    public ResponseEntity<ErrorResponse> handleDailyLimitExceededException(DailyLimitExceededException ex, WebRequest request) {
+        logger.warn("Daily limit exceeded: {}", ex.getMessage());
+        ErrorResponse errorResponse = new ErrorResponse(
+                HttpStatus.BAD_REQUEST.value(),
+                "Daily Limit Exceeded",
+                ex.getMessage(),
+                ((ServletWebRequest) request).getRequest().getRequestURI()
+        );
+        return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
     }
 
     @ExceptionHandler(Exception.class)

@@ -7,4 +7,5 @@ import java.util.List;
 public interface TransactionService {
     TransactionResponse getTransactionById(Long id);
     List<TransactionResponse> getAllTransactionsByCardId(Long cardId);
+    List<TransactionResponse> getTransactionsForCurrentUser();
 }

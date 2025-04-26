@@ -1,14 +1,19 @@
 package com.testtask.bankcardmanager.service.impl;
 
-import com.testtask.bankcardmanager.dto.request.CreateCardRequest;
-import com.testtask.bankcardmanager.dto.request.GetCardsRequest;
-import com.testtask.bankcardmanager.dto.request.UpdateCardRequest;
+import com.testtask.bankcardmanager.dto.request.*;
 import com.testtask.bankcardmanager.dto.response.CardResponse;
+import com.testtask.bankcardmanager.dto.response.TransactionResponse;
+import com.testtask.bankcardmanager.exception.CardOperationException;
+import com.testtask.bankcardmanager.exception.DailyLimitExceededException;
+import com.testtask.bankcardmanager.exception.InsufficientFundsException;
 import com.testtask.bankcardmanager.exception.ResourceNotFoundException;
 import com.testtask.bankcardmanager.model.Card;
+import com.testtask.bankcardmanager.model.Transaction;
 import com.testtask.bankcardmanager.model.User;
 import com.testtask.bankcardmanager.model.enums.CardStatus;
+import com.testtask.bankcardmanager.model.enums.TransactionStatus;
 import com.testtask.bankcardmanager.repository.CardRepository;
+import com.testtask.bankcardmanager.repository.TransactionRepository;
 import com.testtask.bankcardmanager.repository.UserRepository;
 import com.testtask.bankcardmanager.service.CardService;
 import jakarta.persistence.criteria.Predicate;
@@ -19,11 +24,15 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Clock;
+import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
@@ -35,12 +44,14 @@ public class CardServiceImpl implements CardService {
     private static final Logger logger = LoggerFactory.getLogger(CardServiceImpl.class);
     private final CardRepository cardRepository;
     private final UserRepository userRepository;
+    private final TransactionRepository transactionRepository;
     private final Clock clock;
     private static final DateTimeFormatter EXPIRY_DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM");
 
-    public CardServiceImpl(CardRepository cardRepository, UserRepository userRepository, Clock clock) {
+    public CardServiceImpl(CardRepository cardRepository, UserRepository userRepository, TransactionRepository transactionRepository, Clock clock) {
         this.cardRepository = cardRepository;
         this.userRepository = userRepository;
+        this.transactionRepository = transactionRepository;
         this.clock = clock;
     }
 
@@ -152,12 +163,165 @@ public class CardServiceImpl implements CardService {
     @Transactional
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public void deleteCard(Long id) {
+        logger.info("Attempt to block the card from ID: {}", id);
         Card card = cardRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("The card was not found with the ID: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("A card with an ID " + id + " not found"));
         if (card.getStatus() != CardStatus.BLOCKED) {
             card.setStatus(CardStatus.BLOCKED);
             cardRepository.save(card);
+            logger.info("Card with ID: {} successfully blocked", id);
+        } else {
+            logger.warn("The card with the ID: {} has already been blocked", id);
         }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    @PreAuthorize("isAuthenticated()")
+    public Page<CardResponse> getCurrentUserCards(Pageable pageable) {
+        Long currentUserId = getCurrentUserId();
+        logger.info("Requesting a list of maps for the user ID: {}", currentUserId);
+
+        Specification<Card> spec = (root, query, criteriaBuilder) ->
+                criteriaBuilder.equal(root.get("user").get("id"), currentUserId);
+
+        Page<Card> cardPage = cardRepository.findAll(spec, pageable);
+        logger.debug("{} cards found for user ID: {} on the page {}",
+                cardPage.getNumberOfElements(), currentUserId, pageable.getPageNumber());
+        return cardPage.map(this::mapCardToCardResponse);
+    }
+
+    @Override
+    @Transactional
+    @PreAuthorize("isAuthenticated() and @cardSecurityService.isOwner(authentication, #cardId)")
+    public void blockCard(Long cardId) {
+        Long currentUserId = getCurrentUserId();
+        logger.info("User ID: {} is trying to block the ID card: {}", currentUserId, cardId);
+        Card card = cardRepository.findById(cardId)
+                .orElseThrow(() -> new ResourceNotFoundException("A card with an ID " + cardId + " not found"));
+
+        if (card.getStatus() == CardStatus.BLOCKED) {
+            logger.warn("Card ID: {} already blocked by user ID: {}", cardId, currentUserId);
+            throw new CardOperationException("Карта уже заблокирована");
+        }
+
+        if (card.getStatus() == CardStatus.EXPIRED) {
+            logger.warn("Card ID: {} expired and cannot be blocked by the user ID: {}", cardId, currentUserId);
+            throw new CardOperationException("You cannot block an expired card");
+        }
+
+        card.setStatus(CardStatus.BLOCKED);
+        cardRepository.save(card);
+        logger.info("Card ID: {} successfully blocked by user ID: {}", cardId, currentUserId);
+    }
+
+    @Override
+    @Transactional
+    @PreAuthorize("isAuthenticated()")
+    public void transferFunds(TransferRequest request) {
+        Long currentUserId = getCurrentUserId();
+        logger.info("User ID: {} initiated the transfer from card ID: {} to card ID: {} суммы: {}",
+                currentUserId, request.getFromCardId(), request.getToCardId(), request.getAmount());
+
+        if (request.getFromCardId().equals(request.getToCardId())) {
+            throw new CardOperationException("The source card and the destination card cannot be the same");
+        }
+
+        Card fromCard = cardRepository.findById(request.getFromCardId())
+                .orElseThrow(() -> new ResourceNotFoundException("Source card with ID " + request.getFromCardId() + " not found"));
+        Card toCard = cardRepository.findById(request.getToCardId())
+                .orElseThrow(() -> new ResourceNotFoundException("Recipient card with ID " + request.getToCardId() + " not found"));
+
+        if (!fromCard.getUser().getId().equals(currentUserId) || !toCard.getUser().getId().equals(currentUserId)) {
+            logger.error("An attempt to transfer between the cards of different users! User ID: {}, Card Source Owner ID: {}, Card Recipient Owner ID: {}",
+                    currentUserId, fromCard.getUser().getId(), toCard.getUser().getId());
+            throw new SecurityException("Both cards must belong to the current user.");
+        }
+
+        if (fromCard.getStatus() != CardStatus.ACTIVE) {
+            throw new CardOperationException("The source card is inactive");
+        }
+        if (toCard.getStatus() != CardStatus.ACTIVE) {
+            throw new CardOperationException("The recipient's card is inactive");
+        }
+
+        if (fromCard.getBalance().compareTo(request.getAmount()) < 0) {
+            throw new InsufficientFundsException("Insufficient funds on the source card");
+        }
+
+        BigDecimal amount = request.getAmount();
+        fromCard.setBalance(fromCard.getBalance().subtract(amount));
+        toCard.setBalance(toCard.getBalance().add(amount));
+
+        LocalDateTime transactionTime = LocalDateTime.now(clock);
+
+        Transaction withdrawal = new Transaction(fromCard, amount.negate(), transactionTime, TransactionStatus.COMPLETED, transactionTime);
+        Transaction deposit = new Transaction(toCard, amount, transactionTime, TransactionStatus.COMPLETED, transactionTime);
+
+        transactionRepository.save(withdrawal);
+        transactionRepository.save(deposit);
+
+        logger.info("The transfer of funds between the ID: {} and ID: {} cards for the amount of {} was successfully completed by the user ID: {}",
+                request.getFromCardId(), request.getToCardId(), amount, currentUserId);
+    }
+
+    @Override
+    @Transactional
+    @PreAuthorize("isAuthenticated() and @cardSecurityService.isOwner(authentication, #cardId)")
+    public TransactionResponse withdrawFunds(Long cardId, WithdrawalRequest request) {
+        Long currentUserId = getCurrentUserId();
+        BigDecimal amount = request.getAmount();
+        logger.info("User ID: {} trying to withdraw {} from the ID card: {}", currentUserId, amount, cardId);
+
+        Card card = cardRepository.findById(cardId)
+                .orElseThrow(() -> new ResourceNotFoundException("A card with an ID " + cardId + " not found"));
+
+        if (card.getStatus() != CardStatus.ACTIVE) {
+            throw new CardOperationException("The operation is impossible: the card is inactive");
+        }
+
+        if (card.getBalance().compareTo(amount) < 0) {
+            throw new InsufficientFundsException("Insufficient funds on the card");
+        }
+
+        if (card.getDailyWithdrawalLimit() != null && amount.compareTo(card.getDailyWithdrawalLimit()) > 0) {
+            logger.warn("The daily withdrawal limit for the ID card has been exceeded: {}. Requested: {}, Limit: {}",
+                    cardId, amount, card.getDailyWithdrawalLimit());
+            throw new DailyLimitExceededException("The daily withdrawal limit has been exceeded");
+        }
+
+        card.setBalance(card.getBalance().subtract(amount));
+
+        LocalDateTime transactionTime = LocalDateTime.now(clock);
+        Transaction withdrawal = new Transaction(card, amount.negate(), transactionTime, TransactionStatus.COMPLETED, transactionTime);
+        Transaction savedTransaction = transactionRepository.save(withdrawal);
+
+        logger.info("Withdrawal of funds in the amount of {} from the ID card: {} successfully completed by the user ID: {}",
+                amount, cardId, currentUserId);
+
+        return mapTransactionToTransactionDto(savedTransaction);
+    }
+
+    private Long getCurrentUserId() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated() || "anonymousUser".equals(authentication.getPrincipal())) {
+            throw new SecurityException("There is no authenticated user");
+        }
+        String userEmail = authentication.getName();
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new UsernameNotFoundException("User with email " + userEmail + " not found"));
+        return user.getId();
+    }
+
+    private TransactionResponse mapTransactionToTransactionDto(Transaction transaction) {
+        return new TransactionResponse(
+                transaction.getId(),
+                transaction.getCard() != null ? transaction.getCard().getId() : null,
+                transaction.getAmount(),
+                transaction.getTransactionDate(),
+                transaction.getStatus(),
+                transaction.getCreatedAt()
+        );
     }
 
     private CardResponse mapCardToCardResponse(Card card) {
