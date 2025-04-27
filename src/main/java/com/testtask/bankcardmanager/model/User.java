@@ -68,6 +68,10 @@ public class User implements UserDetails {
         return List.of(new SimpleGrantedAuthority(role.name()));
     }
 
+    public void setId(Long id) {
+        this.id = id;
+    }
+
     @Override
     public String getPassword() {
         return this.password;
