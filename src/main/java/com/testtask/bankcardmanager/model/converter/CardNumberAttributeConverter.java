@@ -112,12 +112,20 @@ public class CardNumberAttributeConverter implements AttributeConverter<String, 
 
         try {
             byte[] ivAndCipherText = Base64.getDecoder().decode(dbData);
+            if (ivAndCipherText.length <= IV_LENGTH_BYTE) {
+                throw new IllegalArgumentException("Invalid encrypted data length received.");
+            }
 
             ByteBuffer byteBuffer = ByteBuffer.wrap(ivAndCipherText);
             byte[] iv = new byte[IV_LENGTH_BYTE];
             byteBuffer.get(iv);
             byte[] cipherTextBytes = new byte[byteBuffer.remaining()];
             byteBuffer.get(cipherTextBytes);
+
+            if (cipherTextBytes.length == 0) {
+                throw new IllegalArgumentException("Encrypted data contains only IV, no ciphertext.");
+            }
+
 
             Cipher cipher = Cipher.getInstance(ALGORITHM);
             GCMParameterSpec parameterSpec = new GCMParameterSpec(TAG_LENGTH_BIT, iv);
@@ -128,8 +136,11 @@ public class CardNumberAttributeConverter implements AttributeConverter<String, 
             return new String(plainTextBytes, StandardCharsets.UTF_8);
 
         } catch (IllegalArgumentException e) {
-            logger.error("Failed to decode Base64 data: {}", e.getMessage());
-            throw new IllegalStateException("Failed to decrypt data: Invalid Base64 format", e);
+            logger.error("Failed to decrypt data due to invalid format/length: {}", e.getMessage());
+            throw new IllegalStateException("Failed to decrypt data: Invalid format or Base64", e);
+        } catch (RuntimeException e) {
+            logger.error("Failed to decrypt data due to a runtime exception (provider issue?): {}", e.getMessage(), e);
+            throw new IllegalStateException("Failed to decrypt data due to an unexpected runtime error", e);
         } catch (GeneralSecurityException e) {
             logger.error("Failed to decrypt data (possible tampering or wrong key): {}", e.getMessage());
             throw new IllegalStateException("Failed to decrypt data", e);

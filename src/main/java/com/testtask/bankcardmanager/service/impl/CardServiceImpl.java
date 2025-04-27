@@ -60,7 +60,7 @@ public class CardServiceImpl implements CardService {
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public CardResponse createCard(CreateCardRequest request) {
         logger.info("Attempting to create card for user ID: {}", request.getUserId());
-        User user = userRepository.findById(request.getUserId()).orElseThrow(null);
+        User user = userRepository.findById(request.getUserId()).orElseThrow(() -> new ResourceNotFoundException("User not found with ID: " + request.getUserId()));
 
         Card card = new Card();
         card.setUser(user);
@@ -302,7 +302,7 @@ public class CardServiceImpl implements CardService {
         return mapTransactionToTransactionDto(savedTransaction);
     }
 
-    private Long getCurrentUserId() {
+    public Long getCurrentUserId() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated() || "anonymousUser".equals(authentication.getPrincipal())) {
             throw new SecurityException("There is no authenticated user");
