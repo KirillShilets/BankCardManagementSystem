@@ -33,6 +33,12 @@ public class SecurityConfig {
     @Autowired
     private JwtAuthenticationFilter jwtAuthenticationFilter;
 
+    private static final String[] SWAGGER_WHITELIST = {
+            "/v3/api-docs/**",
+            "/swagger-ui/**",
+            "/swagger-ui.html"
+    };
+
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
@@ -47,20 +53,23 @@ public class SecurityConfig {
                         .authenticationEntryPoint(forbiddenAuthenticationEntryPoint)
                         .accessDeniedHandler(customAccessDeniedHandler))
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(SWAGGER_WHITELIST).permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/users").hasAuthority("ROLE_ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/users").hasAuthority("ROLE_ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/cards").hasAuthority("ROLE_ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/cards").hasAuthority("ROLE_ADMIN")
                         .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/cards/{cardId}/transactions").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/cards/{cardId}/transactions").authenticated() // Изменен, чтобы быть более общим ниже
                         .requestMatchers(HttpMethod.PATCH, "/api/users/{id}/status").hasAuthority("ROLE_ADMIN")
-                        .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/users/{id}").hasAuthority("ROLE_ADMIN")
-                        .requestMatchers("/api/cards/**").authenticated()
-                        .requestMatchers("/api/user/**").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/cards/{id}").authenticated()
                         .requestMatchers(HttpMethod.PATCH, "/api/cards/{id}").hasAuthority("ROLE_ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/cards/{id}").hasAuthority("ROLE_ADMIN")
+                        .requestMatchers("/api/user/cards").authenticated()
+                        .requestMatchers("/api/user/transactions").authenticated()
+                        .requestMatchers("/api/user/cards/{id}/block").authenticated()
+                        .requestMatchers("/api/user/cards/transfer").authenticated()
+                        .requestMatchers("/api/user/cards/{id}/withdraw").authenticated()
                         .anyRequest().authenticated()
                 );
 
