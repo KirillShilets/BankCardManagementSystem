@@ -18,8 +18,6 @@ import com.testtask.bankcardmanager.repository.UserRepository;
 import com.testtask.bankcardmanager.service.CardService;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.validation.ValidationException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -41,7 +39,6 @@ import java.util.List;
 
 @Service
 public class CardServiceImpl implements CardService {
-    private static final Logger logger = LoggerFactory.getLogger(CardServiceImpl.class);
     private final CardRepository cardRepository;
     private final UserRepository userRepository;
     private final TransactionRepository transactionRepository;
@@ -59,7 +56,6 @@ public class CardServiceImpl implements CardService {
     @Transactional
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public CardResponse createCard(CreateCardRequest request) {
-        logger.info("Attempting to create card for user ID: {}", request.getUserId());
         User user = userRepository.findById(request.getUserId()).orElseThrow(() -> new ResourceNotFoundException("User not found with ID: " + request.getUserId()));
 
         Card card = new Card();
@@ -77,22 +73,18 @@ public class CardServiceImpl implements CardService {
             }
             card.setExpiryDate(expiry);
         } catch (DateTimeParseException e) {
-            logger.error("Invalid expiry date format received: {}", request.getExpiryDate(), e);
             throw new IllegalArgumentException("Invalid expiry date format. Expected YYYY-MM.");
         } catch (ValidationException e) {
-            logger.warn("Validation error during card creation: {}", e.getMessage());
             throw e;
         }
 
         Card savedCard = cardRepository.save(card);
-        logger.info("Card created successfully with ID: {} for user ID: {}", savedCard.getId(), user.getId());
         return mapCardToCardResponse(savedCard);
     }
 
     @Override
     @PreAuthorize("hasAuthority('ROLE_ADMIN') or @cardSecurityService.isOwner(authentication, #id)")
     public CardResponse getCardById(Long id) {
-        logger.debug("Attempting to find card by ID: {}", id);
         Card card = cardRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("The card was not found with the ID: " + id));
         return mapCardToCardResponse(card);
     }
@@ -101,8 +93,6 @@ public class CardServiceImpl implements CardService {
     @Transactional(readOnly = true)
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public Page<CardResponse> getAllCards(GetCardsRequest getCardsRequest, Pageable pageable) {
-        logger.info("Request to get a list of cards. Filters: {}. Pagination: {}",
-                getCardsRequest, pageable);
 
         Specification<Card> spec = (root, query, criteriaBuilder) -> {
             List<Predicate> predicates = new ArrayList<>();
@@ -123,8 +113,6 @@ public class CardServiceImpl implements CardService {
         };
 
         Page<Card> cardPage = cardRepository.findAll(spec, pageable);
-        logger.debug("{} cards found on page {} (total items: {})",
-                cardPage.getNumberOfElements(), pageable.getPageNumber(), cardPage.getTotalElements());
 
         return cardPage.map(this::mapCardToCardResponse);
     }
@@ -133,7 +121,6 @@ public class CardServiceImpl implements CardService {
     @Transactional
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public CardResponse updateCard(Long id, UpdateCardRequest request) {
-        logger.info("Attempt to update the card from ID: {}", id);
         Card card = cardRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("The card was not found with the ID: " + id));
 
@@ -163,15 +150,11 @@ public class CardServiceImpl implements CardService {
     @Transactional
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public void deleteCard(Long id) {
-        logger.info("Attempt to block the card from ID: {}", id);
         Card card = cardRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("A card with an ID " + id + " not found"));
         if (card.getStatus() != CardStatus.BLOCKED) {
             card.setStatus(CardStatus.BLOCKED);
             cardRepository.save(card);
-            logger.info("Card with ID: {} successfully blocked", id);
-        } else {
-            logger.warn("The card with the ID: {} has already been blocked", id);
         }
     }
 
@@ -180,14 +163,11 @@ public class CardServiceImpl implements CardService {
     @PreAuthorize("isAuthenticated()")
     public Page<CardResponse> getCurrentUserCards(Pageable pageable) {
         Long currentUserId = getCurrentUserId();
-        logger.info("Requesting a list of maps for the user ID: {}", currentUserId);
 
         Specification<Card> spec = (root, query, criteriaBuilder) ->
                 criteriaBuilder.equal(root.get("user").get("id"), currentUserId);
 
         Page<Card> cardPage = cardRepository.findAll(spec, pageable);
-        logger.debug("{} cards found for user ID: {} on the page {}",
-                cardPage.getNumberOfElements(), currentUserId, pageable.getPageNumber());
         return cardPage.map(this::mapCardToCardResponse);
     }
 
@@ -196,23 +176,19 @@ public class CardServiceImpl implements CardService {
     @PreAuthorize("isAuthenticated() and @cardSecurityService.isOwner(authentication, #cardId)")
     public void blockCard(Long cardId) {
         Long currentUserId = getCurrentUserId();
-        logger.info("User ID: {} is trying to block the ID card: {}", currentUserId, cardId);
         Card card = cardRepository.findById(cardId)
                 .orElseThrow(() -> new ResourceNotFoundException("A card with an ID " + cardId + " not found"));
 
         if (card.getStatus() == CardStatus.BLOCKED) {
-            logger.warn("Card ID: {} already blocked by user ID: {}", cardId, currentUserId);
             throw new CardOperationException("Карта уже заблокирована");
         }
 
         if (card.getStatus() == CardStatus.EXPIRED) {
-            logger.warn("Card ID: {} expired and cannot be blocked by the user ID: {}", cardId, currentUserId);
             throw new CardOperationException("You cannot block an expired card");
         }
 
         card.setStatus(CardStatus.BLOCKED);
         cardRepository.save(card);
-        logger.info("Card ID: {} successfully blocked by user ID: {}", cardId, currentUserId);
     }
 
     @Override
@@ -220,8 +196,6 @@ public class CardServiceImpl implements CardService {
     @PreAuthorize("isAuthenticated()")
     public void transferFunds(TransferRequest request) {
         Long currentUserId = getCurrentUserId();
-        logger.info("User ID: {} initiated the transfer from card ID: {} to card ID: {} суммы: {}",
-                currentUserId, request.getFromCardId(), request.getToCardId(), request.getAmount());
 
         if (request.getFromCardId().equals(request.getToCardId())) {
             throw new CardOperationException("The source card and the destination card cannot be the same");
@@ -233,8 +207,6 @@ public class CardServiceImpl implements CardService {
                 .orElseThrow(() -> new ResourceNotFoundException("Recipient card with ID " + request.getToCardId() + " not found"));
 
         if (!fromCard.getUser().getId().equals(currentUserId) || !toCard.getUser().getId().equals(currentUserId)) {
-            logger.error("An attempt to transfer between the cards of different users! User ID: {}, Card Source Owner ID: {}, Card Recipient Owner ID: {}",
-                    currentUserId, fromCard.getUser().getId(), toCard.getUser().getId());
             throw new SecurityException("Both cards must belong to the current user.");
         }
 
@@ -260,9 +232,6 @@ public class CardServiceImpl implements CardService {
 
         transactionRepository.save(withdrawal);
         transactionRepository.save(deposit);
-
-        logger.info("The transfer of funds between the ID: {} and ID: {} cards for the amount of {} was successfully completed by the user ID: {}",
-                request.getFromCardId(), request.getToCardId(), amount, currentUserId);
     }
 
     @Override
@@ -271,7 +240,6 @@ public class CardServiceImpl implements CardService {
     public TransactionResponse withdrawFunds(Long cardId, WithdrawalRequest request) {
         Long currentUserId = getCurrentUserId();
         BigDecimal amount = request.getAmount();
-        logger.info("User ID: {} trying to withdraw {} from the ID card: {}", currentUserId, amount, cardId);
 
         Card card = cardRepository.findById(cardId)
                 .orElseThrow(() -> new ResourceNotFoundException("A card with an ID " + cardId + " not found"));
@@ -285,8 +253,6 @@ public class CardServiceImpl implements CardService {
         }
 
         if (card.getDailyWithdrawalLimit() != null && amount.compareTo(card.getDailyWithdrawalLimit()) > 0) {
-            logger.warn("The daily withdrawal limit for the ID card has been exceeded: {}. Requested: {}, Limit: {}",
-                    cardId, amount, card.getDailyWithdrawalLimit());
             throw new DailyLimitExceededException("The daily withdrawal limit has been exceeded");
         }
 
@@ -295,9 +261,6 @@ public class CardServiceImpl implements CardService {
         LocalDateTime transactionTime = LocalDateTime.now(clock);
         Transaction withdrawal = new Transaction(card, amount.negate(), transactionTime, TransactionStatus.COMPLETED, transactionTime);
         Transaction savedTransaction = transactionRepository.save(withdrawal);
-
-        logger.info("Withdrawal of funds in the amount of {} from the ID card: {} successfully completed by the user ID: {}",
-                amount, cardId, currentUserId);
 
         return mapTransactionToTransactionDto(savedTransaction);
     }

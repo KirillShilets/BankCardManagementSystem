@@ -28,7 +28,6 @@ import java.util.List;
 
 @Service
 public class UserServiceImpl implements UserService {
-    private static final Logger logger = LoggerFactory.getLogger(UserServiceImpl.class);
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
@@ -41,7 +40,6 @@ public class UserServiceImpl implements UserService {
     @Transactional
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public UserResponse createUser(CreateUserRequest request) {
-        logger.info("Attempting to create user with email: {}", request.getEmail());
         userRepository.findByEmail(request.getEmail()).ifPresent(u -> {
             throw new DuplicateEmailException("Email already exists");
         });
@@ -51,7 +49,6 @@ public class UserServiceImpl implements UserService {
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setRole(Role.ROLE_USER);
         User savedUser = userRepository.save(user);
-        logger.info("User created successfully with ID: {}", savedUser.getId());
         return mapUserToUserDto(savedUser);
     }
 
@@ -59,7 +56,6 @@ public class UserServiceImpl implements UserService {
     @Transactional(readOnly = true)
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public UserResponse getUserById(Long id) {
-        logger.debug("Attempting to find user by ID: {}", id);
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
         return mapUserToUserDto(user);
@@ -69,8 +65,6 @@ public class UserServiceImpl implements UserService {
     @Transactional(readOnly = true)
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public Page<UserResponse> getAllUsers(GetUsersRequest getUsersRequest, Pageable pageable) {
-        logger.info("Request to get a list of users. Filters: {}. Pagination: {}",
-                getUsersRequest, pageable);
 
         Specification<User> spec = (root, query, criteriaBuilder) -> {
             List<Predicate> predicates = new ArrayList<>();
@@ -92,8 +86,6 @@ public class UserServiceImpl implements UserService {
         };
 
         Page<User> userPage = userRepository.findAll(spec, pageable);
-        logger.debug("{} users found on page {} (total items: {})",
-                userPage.getNumberOfElements(), pageable.getPageNumber(), userPage.getTotalElements());
 
         return userPage.map(this::mapUserToUserDto);
     }
@@ -102,19 +94,16 @@ public class UserServiceImpl implements UserService {
     @Transactional
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public UserResponse updateUserStatus(Long id, Boolean locked) {
-        logger.info("Attempting to update lock status for user ID: {} to locked={}", id, locked);
         User user = userRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found with ID: " + id)); // Улучшенное сообщение
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with ID: " + id));
 
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth != null && user.getEmail().equals(auth.getName()) && locked) {
-            logger.warn("Admin user {} attempted to lock their own account.", user.getEmail());
             throw new ValidationException("Administrator cannot lock their own account.");
         }
 
         user.setAccountNonLocked(!locked);
         User updatedUser = userRepository.save(user);
-        logger.info("User lock status updated successfully for ID: {}. New accountNonLocked state: {}", id, updatedUser.isAccountNonLocked());
         return mapUserToUserDto(updatedUser);
     }
 

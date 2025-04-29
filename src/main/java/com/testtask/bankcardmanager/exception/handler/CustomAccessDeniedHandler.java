@@ -3,8 +3,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.testtask.bankcardmanager.dto.response.ErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -16,7 +14,6 @@ import java.io.OutputStream;
 
 @Component
 public class CustomAccessDeniedHandler implements AccessDeniedHandler {
-    private static final Logger logger = LoggerFactory.getLogger(CustomAccessDeniedHandler.class);
     private final ObjectMapper objectMapper;
 
     @Autowired
@@ -27,9 +24,6 @@ public class CustomAccessDeniedHandler implements AccessDeniedHandler {
     @Override
     public void handle(HttpServletRequest request, HttpServletResponse response,
                        AccessDeniedException accessDeniedException) throws IOException {
-
-        logger.warn("Access Denied detected by Spring Security filter chain: {} for path: {}",
-                accessDeniedException.getMessage(), request.getRequestURI());
 
         ErrorResponse errorResponse = new ErrorResponse(
                 HttpStatus.FORBIDDEN.value(),

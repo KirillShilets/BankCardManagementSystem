@@ -2,8 +2,6 @@ package com.testtask.bankcardmanager.model.converter;
 
 import jakarta.persistence.AttributeConverter;
 import jakarta.persistence.Converter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
@@ -24,8 +22,6 @@ import java.util.Objects;
 @Component
 public class CardNumberAttributeConverter implements AttributeConverter<String, String> {
 
-    private static final Logger logger = LoggerFactory.getLogger(CardNumberAttributeConverter.class);
-
     private static final String ALGORITHM = "AES/GCM/NoPadding";
     private static final int IV_LENGTH_BYTE = 12;
     private static final int TAG_LENGTH_BIT = 128;
@@ -38,11 +34,9 @@ public class CardNumberAttributeConverter implements AttributeConverter<String, 
     @Autowired
     public CardNumberAttributeConverter(Environment environment) {
         Objects.requireNonNull(environment, "Spring Environment cannot be null");
-        logger.info("CardNumberAttributeConverter constructor called. Initializing SecretKey...");
 
         String base64Key = environment.getProperty(PROPERTY_NAME_DOT);
         if (base64Key == null || base64Key.isEmpty()) {
-            logger.warn("Property '{}' not found, trying '{}'", PROPERTY_NAME_DOT, PROPERTY_NAME_ENV);
             base64Key = environment.getProperty(PROPERTY_NAME_ENV);
         }
 
@@ -51,11 +45,8 @@ public class CardNumberAttributeConverter implements AttributeConverter<String, 
                     "Encryption key not found using properties '%s' or '%s'. " +
                             "Ensure it's configured in a property source (like .env via initializer, application.properties, or environment variables).",
                     PROPERTY_NAME_DOT, PROPERTY_NAME_ENV);
-            logger.error(errorMessage);
             throw new IllegalStateException(errorMessage);
         }
-
-        logger.info("Found encryption key using property name. Length: {}", base64Key.length());
 
         try {
             byte[] keyBytes = Base64.getDecoder().decode(base64Key);
@@ -64,12 +55,9 @@ public class CardNumberAttributeConverter implements AttributeConverter<String, 
             }
             this.secretKey = new SecretKeySpec(keyBytes, "AES");
             Cipher.getInstance(ALGORITHM);
-            logger.info("SecretKey initialized successfully in constructor with {} bits key.", keyBytes.length * 8);
         } catch (IllegalArgumentException | NoSuchAlgorithmException e) {
-            logger.error("Failed to initialize SecretKey in constructor: {}", e.getMessage(), e);
             throw new IllegalStateException("Failed to initialize SecretKey", e);
         } catch (Exception e) {
-            logger.error("Failed to initialize Cipher for algorithm {} in constructor: {}", ALGORITHM, e.getMessage(), e);
             throw new IllegalStateException("Failed to initialize Cipher for algorithm " + ALGORITHM, e);
         }
     }
@@ -99,7 +87,6 @@ public class CardNumberAttributeConverter implements AttributeConverter<String, 
             return Base64.getEncoder().encodeToString(ivAndCipherText);
 
         } catch (GeneralSecurityException e) {
-            logger.error("Failed to encrypt data: {}", e.getMessage(), e);
             throw new IllegalStateException("Failed to encrypt data", e);
         }
     }
@@ -136,13 +123,10 @@ public class CardNumberAttributeConverter implements AttributeConverter<String, 
             return new String(plainTextBytes, StandardCharsets.UTF_8);
 
         } catch (IllegalArgumentException e) {
-            logger.error("Failed to decrypt data due to invalid format/length: {}", e.getMessage());
             throw new IllegalStateException("Failed to decrypt data: Invalid format or Base64", e);
         } catch (RuntimeException e) {
-            logger.error("Failed to decrypt data due to a runtime exception (provider issue?): {}", e.getMessage(), e);
             throw new IllegalStateException("Failed to decrypt data due to an unexpected runtime error", e);
         } catch (GeneralSecurityException e) {
-            logger.error("Failed to decrypt data (possible tampering or wrong key): {}", e.getMessage());
             throw new IllegalStateException("Failed to decrypt data", e);
         }
     }

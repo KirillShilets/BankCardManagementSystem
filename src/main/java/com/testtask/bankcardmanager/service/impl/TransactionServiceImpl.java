@@ -9,8 +9,6 @@ import com.testtask.bankcardmanager.repository.CardRepository;
 import com.testtask.bankcardmanager.repository.TransactionRepository;
 import com.testtask.bankcardmanager.repository.UserRepository;
 import com.testtask.bankcardmanager.service.TransactionService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -24,7 +22,6 @@ import java.util.stream.Collectors;
 
 @Service
 public class TransactionServiceImpl implements TransactionService {
-    private static final Logger logger = LoggerFactory.getLogger(TransactionServiceImpl.class);
     private final TransactionRepository transactionRepository;
     private final CardRepository cardRepository;
     private final UserRepository userRepository;
@@ -39,10 +36,8 @@ public class TransactionServiceImpl implements TransactionService {
     @Transactional(readOnly = true)
     @PreAuthorize("hasAuthority('ROLE_ADMIN') or @transactionSecurityService.isOwner(authentication, #id)")
     public TransactionResponse getTransactionById(Long id) {
-        logger.debug("Attempting to find transaction by ID: {}", id);
         Transaction transaction = transactionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Transaction not found with ID: " + id));
-        logger.info("Transaction found successfully with ID: {}", id);
         return mapTransactionToTransactionDto(transaction);
     }
 
@@ -64,13 +59,11 @@ public class TransactionServiceImpl implements TransactionService {
     @PreAuthorize("isAuthenticated()")
     public List<TransactionResponse> getTransactionsForCurrentUser() {
         Long currentUserId = getCurrentUserId();
-        logger.info("Requesting transaction history for user ID: {}", currentUserId);
 
         List<Card> userCards = cardRepository.findAll((root, query, criteriaBuilder) ->
                 criteriaBuilder.equal(root.get("user").get("id"), currentUserId));
 
         if (userCards.isEmpty()) {
-            logger.info("User ID: {} has no cards, an empty list of transactions is returned.", currentUserId);
             return Collections.emptyList();
         }
 
@@ -81,7 +74,6 @@ public class TransactionServiceImpl implements TransactionService {
         );
         transactions.sort((t1, t2) -> t2.getTransactionDate().compareTo(t1.getTransactionDate()));
 
-        logger.info("{} transactions found for user ID: {}", transactions.size(), currentUserId);
 
         return transactions.stream()
                 .map(this::mapTransactionToTransactionDto)
