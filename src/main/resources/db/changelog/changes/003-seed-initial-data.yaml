@@ -1,0 +1,167 @@
+databaseChangeLog:
+  - changeSet:
+      id: 3
+      author: kirill_shilets
+      comment: "Добавление начального админа и пользователей с картами"
+      changes:
+        # --- Вставка Админа (Пароль: AdminSecurePass1!) ---
+        # --- P.S. так делать нельзя, но я сделал это для облегчения проверки ---
+        - insert:
+            tableName: users
+            columns:
+              - column: { name: id, valueSequenceNext: 'users_id_seq' } # ID будет 1
+              - column: { name: email, value: "admin@bank.local" }
+              - column: { name: password, value: "$2a$10$hVv7NQxX.Lb1S9Bwoqk/8u31w0p6OOaPI6VYs9dOB3/C8/cgiNHqm" }
+              - column: { name: role, value: "ROLE_ADMIN" }
+              - column: { name: is_account_non_locked, valueBoolean: true }
+              - column: { name: is_enabled, valueBoolean: true }
+              - column: { name: is_account_non_expired, valueBoolean: true }
+              - column: { name: is_credentials_non_expired, valueBoolean: true }
+
+        # --- Вставка Юзеров ---
+        # User 1 (Пароль: UserPassOne1!) - 1 карта - ID будет 2
+        - insert:
+            tableName: users
+            columns:
+              - column: { name: id, valueSequenceNext: 'users_id_seq' }
+              - column: { name: email, value: "ivan.ivanov@test.com" }
+              - column: { name: password, value: "$2a$10$x.OWuwdLlLICGDEoJLrkROe6wUTqJfGA.2KA24dYASECFegJFiIbG" }
+              - column: { name: role, value: "ROLE_USER" }
+              - column: { name: is_account_non_locked, valueBoolean: true }
+              - column: { name: is_enabled, valueBoolean: true }
+        # User 2 (Пароль: UserPassTwo2!) - 2 карты - ID будет 3
+        - insert:
+            tableName: users
+            columns:
+              - column: { name: id, valueSequenceNext: 'users_id_seq' }
+              - column: { name: email, value: "petr.petrov@test.com" }
+              - column: { name: password, value: "$2a$10$5dAIxEzOPkpB2sWBgEXzieEW1flCg8QX.w95Kv7QZZGA3IKMd/JMq" }
+              - column: { name: role, value: "ROLE_USER" }
+              - column: { name: is_account_non_locked, valueBoolean: true }
+              - column: { name: is_enabled, valueBoolean: true }
+        # User 3 (Пароль: UserPassThree3!) - 0 карт - ID будет 4
+        - insert:
+            tableName: users
+            columns:
+              - column: { name: id, valueSequenceNext: 'users_id_seq' }
+              - column: { name: email, value: "maria.sidorova@test.com" }
+              - column: { name: password, value: "$2a$10$rvc6kbmKQPXEIhwG3tLcJOG4/.90D5j5Of5rEeYPDNJl4v1H7lVFK" }
+              - column: { name: role, value: "ROLE_USER" }
+              - column: { name: is_account_non_locked, valueBoolean: true }
+              - column: { name: is_enabled, valueBoolean: true }
+        # User 4 (Пароль: UserPassFour4!) - 3 карты - ID будет 5
+        - insert:
+            tableName: users
+            columns:
+              - column: { name: id, valueSequenceNext: 'users_id_seq' }
+              - column: { name: email, value: "anna.kozlova@test.com" }
+              - column: { name: password, value: "$2a$10$68I.yvUulVigw4TYLSYSu.bgVdKTxgdyfJmlUqaXWrF6hDHmKimLS" }
+              - column: { name: role, value: "ROLE_USER" }
+              - column: { name: is_account_non_locked, valueBoolean: true }
+              - column: { name: is_enabled, valueBoolean: true }
+        # User 5 (Пароль: UserPassFive5!) - 1 карта (заблокирован) - ID будет 6
+        - insert:
+            tableName: users
+            columns:
+              - column: { name: id, valueSequenceNext: 'users_id_seq' }
+              - column: { name: email, value: "alexey.smirnov@test.com" }
+              - column: { name: password, value: "$2a$10$xRVGfUO1kE3os1dL7pj8neZdTFsp6fYtA0/F.bWSz9fii8tEEF9U." }
+              - column: { name: role, value: "ROLE_USER" }
+              - column: { name: is_account_non_locked, valueBoolean: false }
+              - column: { name: is_enabled, valueBoolean: true }
+
+        # --- Вставка Карт ---
+        # ID пользователей: admin=1, user1=2, user2=3, user3=4, user4=5, user5=6
+
+        # Карты для User 1 (ID=2) - ID карты будет 1
+        - insert:
+            tableName: bank_cards
+            columns:
+              - column: { name: id, valueSequenceNext: 'bank_cards_id_seq' }
+              - column: { name: user_id, valueNumeric: 2 }
+              - column: { name: card_number_encrypt, value: "KWYShoB5XG35zIHZznK7/ojHP8N5gBwUASuBig715zqZ5lOAl/5xkYKwQpo=" }
+              - column: { name: card_holder, value: "IVAN IVANOV" }
+              - column: { name: expiry_date, value: "2028-10" }
+              - column: { name: status, value: "ACTIVE" }
+              - column: { name: balance, valueNumeric: 1500.00 }
+              - column: { name: daily_withdrawal_limit, valueNumeric: 300.00 }
+
+        # Карты для User 2 (ID=3) - ID карт будут 2, 3
+        - insert:
+            tableName: bank_cards
+            columns:
+              - column: { name: id, valueSequenceNext: 'bank_cards_id_seq' }
+              - column: { name: user_id, valueNumeric: 3 }
+              - column: { name: card_number_encrypt, value: "/idIpEA6CBCVporjEvZQxULqfdHa5HNGde4ab5ZPgPGdDjdYbvunx47Ee0E=" }
+              - column: { name: card_holder, value: "PETR PETROV" }
+              - column: { name: expiry_date, value: "2027-05" }
+              - column: { name: status, value: "ACTIVE" }
+              - column: { name: balance, valueNumeric: 250.50 }
+              - column: { name: daily_withdrawal_limit, valueNumeric: 100.00 }
+        - insert:
+            tableName: bank_cards
+            columns:
+              - column: { name: id, valueSequenceNext: 'bank_cards_id_seq' }
+              - column: { name: user_id, valueNumeric: 3 }
+              - column: { name: card_number_encrypt, value: "bDEDAT73aQOiUuyaUjKEq8fDqaYcCJJVg32ehrFUjZX/NPcewgLCoCiL2Yo=" }
+              - column: { name: card_holder, value: "PETR S PETROV" }
+              - column: { name: expiry_date, value: "2029-01" }
+              - column: { name: status, value: "ACTIVE" }
+              - column: { name: balance, valueNumeric: 10000.00 }
+              - column: { name: daily_withdrawal_limit, valueNumeric: 1500.00 }
+
+        # Карты для User 4 (ID=5) - ID карт будут 4, 5, 6
+        - insert:
+            tableName: bank_cards
+            columns:
+              - column: { name: id, valueSequenceNext: 'bank_cards_id_seq' }
+              - column: { name: user_id, valueNumeric: 5 }
+              - column: { name: card_number_encrypt, value: "7Gsz3Ap3OMS10KzFuDnWggAEFAbnJdeA6GP6JLEPwhMjkqi21JT9FdC476s=" }
+              - column: { name: card_holder, value: "ANNA N KOZLOVA" }
+              - column: { name: expiry_date, value: "2026-12" }
+              - column: { name: status, value: "ACTIVE" }
+              - column: { name: balance, valueNumeric: 5000.00 }
+              - column: { name: daily_withdrawal_limit, valueNumeric: 1000.00 }
+        - insert:
+            tableName: bank_cards
+            columns:
+              - column: { name: id, valueSequenceNext: 'bank_cards_id_seq' }
+              - column: { name: user_id, valueNumeric: 5 }
+              - column: { name: card_number_encrypt, value: "jE1TkEBfXGvKv0gD0Pmx6P/h+LGKMCWs0qgdUO9o2KzV60mKO6TUWYQ2/qs=" }
+              - column: { name: card_holder, value: "ANNA KOZLOVA" }
+              - column: { name: expiry_date, value: "2028-06" }
+              - column: { name: status, value: "BLOCKED" }
+              - column: { name: balance, valueNumeric: 100.25 }
+              - column: { name: daily_withdrawal_limit, valueNumeric: 50.00 }
+        - insert:
+            tableName: bank_cards
+            columns:
+              - column: { name: id, valueSequenceNext: 'bank_cards_id_seq' }
+              - column: { name: user_id, valueNumeric: 5 }
+              - column: { name: card_number_encrypt, value: "6fZeGmKFIjHN5LjiKuxUFHBkzidTfcZtzyrBY/ORLwIO55OFSR9hE2j78yg=" }
+              - column: { name: card_holder, value: "ANNA KOZLOVA" }
+              - column: { name: expiry_date, value: "2027-02" }
+              - column: { name: status, value: "ACTIVE" }
+              - column: { name: balance, valueNumeric: 0.00 }
+              - column: { name: daily_withdrawal_limit, valueNumeric: 200.00 }
+
+        # Карты для User 5 (ID=6) - ID карты будет 7
+        - insert:
+            tableName: bank_cards
+            columns:
+              - column: { name: id, valueSequenceNext: 'bank_cards_id_seq' }
+              - column: { name: user_id, valueNumeric: 6 }
+              - column: { name: card_number_encrypt, value: "YlmnVOV81+WIcpYSBhKWLfTYYyricZtMd43YhileCnIh6Ai+V+Y+o29PV/I=" }
+              - column: { name: card_holder, value: "ALEXEY SMIRNOV" }
+              - column: { name: expiry_date, value: "2026-08" }
+              - column: { name: status, value: "ACTIVE" }
+              - column: { name: balance, valueNumeric: 50.00 }
+              - column: { name: daily_withdrawal_limit, valueNumeric: 50.00 }
+        - sql:
+            dbms: postgresql
+            sql: |
+              SELECT setval('users_id_seq', 6, true);
+              SELECT setval('bank_cards_id_seq', 7, true);
+            stripComments: true
+            splitStatements: true
+            endDelimiter: ;
