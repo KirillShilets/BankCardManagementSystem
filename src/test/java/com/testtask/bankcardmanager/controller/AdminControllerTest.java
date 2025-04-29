@@ -159,7 +159,7 @@ class AdminControllerTest {
     void updateUserStatus_AdminLocksSelf() {
         UpdateUserStatusRequest request = new UpdateUserStatusRequest();
         request.setLocked(true);
-        Long adminId = 1L; // Предполагаемый ID админа
+        Long adminId = 1L;
 
         when(userService.updateUserStatus(eq(adminId), eq(true)))
                 .thenThrow(new ValidationException("Administrator cannot lock their own account."));

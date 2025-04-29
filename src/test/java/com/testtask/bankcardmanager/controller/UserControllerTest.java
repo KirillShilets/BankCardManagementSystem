@@ -225,7 +225,7 @@ class UserControllerTest {
     void withdrawFunds_DailyLimitExceeded() {
         Long cardId = 1L;
         WithdrawalRequest request = new WithdrawalRequest();
-        request.setAmount(BigDecimal.valueOf(600)); // Больше лимита testCard1
+        request.setAmount(BigDecimal.valueOf(600));
 
         when(cardService.withdrawFunds(eq(cardId), any(WithdrawalRequest.class)))
                 .thenThrow(new DailyLimitExceededException("Daily limit exceeded"));

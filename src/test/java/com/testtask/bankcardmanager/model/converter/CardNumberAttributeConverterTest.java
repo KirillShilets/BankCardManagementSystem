@@ -21,12 +21,11 @@ class CardNumberAttributeConverterTest {
 
     private CardNumberAttributeConverter converter;
 
-    private final String TEST_AES_KEY_BASE64 = "MTIzNDU2Nzg5MDEyMzQ1Ng=="; // 16 bytes key, valid
+    private final String TEST_AES_KEY_BASE64 = "MTIzNDU2Nzg5MDEyMzQ1Ng==";
 
     @BeforeEach
     void setUp() {
         lenient().when(environment.getProperty("encryption.aes.key")).thenReturn(TEST_AES_KEY_BASE64);
-        // Use lenient() if the mock is sometimes not used in a test (like constructor tests)
         converter = new CardNumberAttributeConverter(environment);
     }
 
@@ -72,7 +71,7 @@ class CardNumberAttributeConverterTest {
 
     @Test
     void convertToEntityAttribute_TooShortData() {
-        byte[] onlyIv = new byte[11]; // Less than IV_LENGTH_BYTE
+        byte[] onlyIv = new byte[11];
         java.util.concurrent.ThreadLocalRandom.current().nextBytes(onlyIv);
         String tooShortData = Base64.getEncoder().encodeToString(onlyIv);
 
@@ -88,7 +87,7 @@ class CardNumberAttributeConverterTest {
         String encryptedData = converter.convertToDatabaseColumn(originalCardNumber);
         byte[] encryptedBytes = Base64.getDecoder().decode(encryptedData);
 
-        encryptedBytes[encryptedBytes.length - 1] ^= 0x01; // Tamper with the last byte
+        encryptedBytes[encryptedBytes.length - 1] ^= 0x01;
         String tamperedData = Base64.getEncoder().encodeToString(encryptedBytes);
 
         IllegalStateException exception = assertThrows(IllegalStateException.class, () -> converter.convertToEntityAttribute(tamperedData));
@@ -99,7 +98,6 @@ class CardNumberAttributeConverterTest {
 
     @Test
     void constructor_KeyNotFound_ThrowsException() {
-        // Need a separate environment mock for this test as setUp() sets a valid key
         Environment mockEnv = mock(Environment.class);
         when(mockEnv.getProperty("encryption.aes.key")).thenReturn(null);
         when(mockEnv.getProperty("ENCRYPTION_AES_KEY")).thenReturn(null);
@@ -111,7 +109,7 @@ class CardNumberAttributeConverterTest {
     @Test
     void constructor_InvalidKeyLength_ThrowsException() {
         Environment mockEnv = mock(Environment.class);
-        String invalidKeyBase64 = "dG9vU2hvcnRLZXk="; // 11 bytes key
+        String invalidKeyBase64 = "dG9vU2hvcnRLZXk=";
         when(mockEnv.getProperty("encryption.aes.key")).thenReturn(invalidKeyBase64);
 
         IllegalStateException exception = assertThrows(IllegalStateException.class, () -> new CardNumberAttributeConverter(mockEnv));

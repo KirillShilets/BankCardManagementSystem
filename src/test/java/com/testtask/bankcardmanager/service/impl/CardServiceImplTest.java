@@ -149,8 +149,6 @@ class CardServiceImplTest {
         request.setBalance(BigDecimal.ZERO);
 
         when(userRepository.findById(99L)).thenReturn(Optional.empty());
-
-        // This test WILL FAIL until CardServiceImpl.java is fixed
         assertThrows(ResourceNotFoundException.class, () -> cardService.createCard(request));
         verify(userRepository).findById(99L);
         verify(cardRepository, never()).save(any(Card.class));
